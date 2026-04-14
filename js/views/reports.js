@@ -39,12 +39,12 @@ function renderReports(client) {
 
     <!-- Charts -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        ${UI.card(`<div class="p-5"><h3 class="font-semibold text-slate-900 mb-4">Crecimiento de Seguidores</h3><canvas id="chart-followers" height="200"></canvas></div>`)}
-        ${UI.card(`<div class="p-5"><h3 class="font-semibold text-slate-900 mb-4">Alcance Mensual</h3><canvas id="chart-reach" height="200"></canvas></div>`)}
+        ${UI.card(`<div class="p-5"><h3 class="font-semibold text-slate-900 mb-4">Crecimiento de Seguidores</h3><div class="relative h-[200px]"><canvas id="chart-followers"></canvas></div></div>`)}
+        ${UI.card(`<div class="p-5"><h3 class="font-semibold text-slate-900 mb-4">Alcance Mensual</h3><div class="relative h-[200px]"><canvas id="chart-reach"></canvas></div></div>`)}
     </div>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        ${UI.card(`<div class="p-5"><h3 class="font-semibold text-slate-900 mb-4">Leads Generados</h3><canvas id="chart-leads" height="200"></canvas></div>`)}
-        ${UI.card(`<div class="p-5"><h3 class="font-semibold text-slate-900 mb-4">Distribución por Canal</h3><canvas id="chart-channels" height="200"></canvas></div>`)}
+        ${UI.card(`<div class="p-5"><h3 class="font-semibold text-slate-900 mb-4">Leads Generados</h3><div class="relative h-[200px]"><canvas id="chart-leads"></canvas></div></div>`)}
+        ${UI.card(`<div class="p-5"><h3 class="font-semibold text-slate-900 mb-4">Distribución por Canal</h3><div class="relative h-[200px]"><canvas id="chart-channels"></canvas></div></div>`)}
     </div>
 
     <!-- Top & Worst Content -->
@@ -81,14 +81,27 @@ function renderReports(client) {
 }
 
 /* Post-render: initialize Chart.js charts */
+// Track active chart instances to destroy before re-creating
+const _reportCharts = {};
+
 function initReportCharts(client) {
     const r = client.reports && client.reports.current;
     if (!r || !r.chartData) return;
+    if (typeof Chart === 'undefined') return;
     const cd = r.chartData;
+
+    // Destroy any existing chart instances to prevent memory leak & hang
+    ['followers','reach','leads','channels'].forEach(id => {
+        if (_reportCharts[id]) {
+            try { _reportCharts[id].destroy(); } catch(e) {}
+            delete _reportCharts[id];
+        }
+    });
 
     const commonOpts = {
         responsive: true,
         maintainAspectRatio: false,
+        animation: { duration: 400 },
         plugins: { legend: { display: false } },
         scales: {
             x: { grid: { display: false }, ticks: { font: { size: 11 } } },
@@ -97,36 +110,36 @@ function initReportCharts(client) {
     };
 
     const ctxF = document.getElementById('chart-followers');
-    if (ctxF) new Chart(ctxF, {
+    if (ctxF) _reportCharts.followers = new Chart(ctxF, {
         type: 'line',
-        data: { labels: cd.labels, datasets: [{ label:'Seguidores', data: cd.seguidores, borderColor:'#6366f1', backgroundColor:'rgba(99,102,241,0.1)', fill:true, tension:0.4, pointBackgroundColor:'#6366f1' }] },
+        data: { labels: cd.labels, datasets: [{ label:'Seguidores', data: cd.seguidores, borderColor:'#6366f1', backgroundColor:'rgba(99,102,241,0.1)', fill:true, tension:0.4, pointBackgroundColor:'#6366f1', pointRadius:3 }] },
         options: commonOpts
     });
 
     const ctxR = document.getElementById('chart-reach');
-    if (ctxR) new Chart(ctxR, {
+    if (ctxR) _reportCharts.reach = new Chart(ctxR, {
         type: 'bar',
         data: { labels: cd.labels, datasets: [{ label:'Alcance', data: cd.alcance, backgroundColor:'rgba(99,102,241,0.6)', borderRadius:6 }] },
         options: commonOpts
     });
 
     const ctxL = document.getElementById('chart-leads');
-    if (ctxL) new Chart(ctxL, {
+    if (ctxL) _reportCharts.leads = new Chart(ctxL, {
         type: 'line',
-        data: { labels: cd.labels, datasets: [{ label:'Leads', data: cd.leads, borderColor:'#10b981', backgroundColor:'rgba(16,185,129,0.1)', fill:true, tension:0.4, pointBackgroundColor:'#10b981' }] },
+        data: { labels: cd.labels, datasets: [{ label:'Leads', data: cd.leads, borderColor:'#10b981', backgroundColor:'rgba(16,185,129,0.1)', fill:true, tension:0.4, pointBackgroundColor:'#10b981', pointRadius:3 }] },
         options: commonOpts
     });
 
     const ctxC = document.getElementById('chart-channels');
     if (ctxC) {
         const b = client.strategy && client.strategy.budget ? client.strategy.budget : { meta:40, google:30, tiktok:15, produccion:15 };
-        new Chart(ctxC, {
+        _reportCharts.channels = new Chart(ctxC, {
             type: 'doughnut',
             data: {
                 labels: ['Meta Ads','Google Ads','TikTok Ads','Producción'],
                 datasets: [{ data: [b.meta||0, b.google||0, b.tiktok||0, b.produccion||0], backgroundColor:['#6366f1','#f59e0b','#000000','#10b981'], borderWidth:0 }]
             },
-            options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ padding:16, usePointStyle:true, font:{size:11} } } } }
+            options: { responsive:true, maintainAspectRatio:false, animation:{ duration:400 }, plugins:{ legend:{ position:'bottom', labels:{ padding:16, usePointStyle:true, font:{size:11} } } } }
         });
     }
 }

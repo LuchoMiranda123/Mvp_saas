@@ -96,6 +96,14 @@ App.render = function() {
         return;
     }
 
+    // Destroy any active charts before replacing DOM
+    if (typeof _reportCharts !== 'undefined') {
+        Object.keys(_reportCharts).forEach(k => {
+            try { _reportCharts[k].destroy(); } catch(e) {}
+            delete _reportCharts[k];
+        });
+    }
+
     app.innerHTML = html;
 
     // Re-initialize Lucide icons
